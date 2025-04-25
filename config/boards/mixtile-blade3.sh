@@ -29,6 +29,8 @@ function config_image_hook__mixtile-blade3() {
     cp ${overlay_dir}/usr/bin/vendor_storage ${rootfs}/usr/bin/vendor_storage
     cp -r ../packages/adb/rockchip-adbd.deb ${rootfs}/tmp
     chroot "${rootfs}" dpkg -i /tmp/rockchip-adbd.deb
+    cp -r ../packages/miop/miop-driver-service.deb ${rootfs}/tmp
+    chroot "${rootfs}" dpkg -i /tmp/miop-driver-service.deb
     echo "BUILD_ID=$(date +'%Y-%m-%d')" >> "${rootfs}/etc/os-release"
 
     chroot "${rootfs}" sed -i '/^menu title/d' /usr/sbin/u-boot-update

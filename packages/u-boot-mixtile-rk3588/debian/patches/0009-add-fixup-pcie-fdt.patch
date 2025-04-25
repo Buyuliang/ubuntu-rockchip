@@ -1,0 +1,103 @@
+diff --git a/arch/arm/mach-rockchip/rk3588/rk3588.c b/arch/arm/mach-rockchip/rk3588/rk3588.c
+index e08a3ab839..628e7d9cc4 100644
+--- a/arch/arm/mach-rockchip/rk3588/rk3588.c
++++ b/arch/arm/mach-rockchip/rk3588/rk3588.c
+@@ -13,6 +13,16 @@
+ #include <asm/arch/hardware.h>
+ #include <asm/arch/ioc_rk3588.h>
+ #include <dt-bindings/clock/rk3588-cru.h>
++#include <asm/gpio.h>
++#include <key.h>
++
++#define DEBUG_FDT
++
++#define PHY_MODE_PCIE_AGGREGATION	4	/* PCIe3x4 */
++#define PHY_MODE_PCIE_NANBNB		0		/* P1:PCIe3x2  +  P0:PCIe3x2 */
++#define PHY_MODE_PCIE_NANBBI		1		/* P1:PCIe3x2  +  P0:PCIe3x1*2 */
++#define PHY_MODE_PCIE_NABINB		2		/* P1:PCIe3x1*2 + P0:PCIe3x2 */
++#define PHY_MODE_PCIE_NABIBI		3		/* P1:PCIe3x1*2 + P0:PCIe3x1*2 */
+ 
+ DECLARE_GLOBAL_DATA_PTR;
+ 
+@@ -1231,10 +1241,81 @@ int rk_board_dm_fdt_fixup(const void *blob)
+ 	return fdt_fixup_modules((void *)blob);
+ }
+ 
++static int fdt_fixup_pcie(void *blob)
++{
++	int pcie30phy_node, pcie3x4_node, pcie3x2_node;
++	int pwrdis = key_is_pressed(key_read(KEY_1)) ? 1 : 0;
++	int ifdet = key_is_pressed(key_read(KEY_2)) ? 1 : 0;
++	int status =ifdet | (pwrdis << 1);
++
++	pcie30phy_node = fdt_path_offset(blob, "/phy@fee80000");
++	if (pcie30phy_node < 0) {
++		printf("Failed to get pcie30phy_node node\n");
++		return -1;
++	}
++	pcie3x4_node = fdt_path_offset(blob, "/pcie@fe150000");
++	if (pcie3x4_node < 0) {
++		printf("Failed to get pcie3x4_node node\n");
++		return -1;
++	}
++	pcie3x2_node = fdt_path_offset(blob, "/pcie@fe160000");
++	if (pcie3x2_node < 0) {
++		printf("Failed to get pcie3x2_node node\n");
++		return -1;
++	}
++
++	switch(status) {
++		case 0:
++			printf("01:EP 23:RC\n");
++			// pcie30phy
++			fdt_setprop_u32(blob, pcie30phy_node, "rockchip,pcie30-phymode", PHY_MODE_PCIE_NANBNB);
++			fdt_setprop_string(blob, pcie30phy_node, "status", "okay");
++			// pcie3x2
++			fdt_setprop_string(blob, pcie3x2_node, "status", "okay");
++			//pcie3x4
++			fdt_setprop_string(blob, pcie3x4_node, "compatible", "mixtile,miop-ep-rk3588");
++			fdt_setprop_u32(blob, pcie3x4_node, "num-lanes", 2);
++			fdt_delprop(blob, pcie3x4_node, "reset-gpios");
++			fdt_setprop_string(blob, pcie3x4_node, "status", "okay");
++			break;
++		case 1:
++			printf("4 EP\n");
++			// pcie30phy
++			fdt_setprop_u32(blob, pcie30phy_node, "rockchip,pcie30-phymode", PHY_MODE_PCIE_AGGREGATION);
++			fdt_setprop_string(blob, pcie30phy_node, "status", "okay");
++			// pcie3x4
++			fdt_setprop_string(blob, pcie3x4_node, "compatible", "mixtile,miop-ep-rk3588");
++			fdt_setprop_string(blob, pcie3x4_node, "status", "okay");
++			break;
++		case 2:
++			printf("01:disabled 23:RC\n");
++			// pcie30phy
++			fdt_setprop_u32(blob, pcie30phy_node, "rockchip,pcie30-phymode", PHY_MODE_PCIE_AGGREGATION);
++			fdt_setprop_string(blob, pcie30phy_node, "status", "okay");
++			// pcie3x2
++			fdt_setprop_string(blob, pcie3x2_node, "status", "okay");
++			break;
++		case 3:
++			printf("4 RC\n");
++			// pcie30phy
++			fdt_setprop_u32(blob, pcie30phy_node, "rockchip,pcie30-phymode", PHY_MODE_PCIE_AGGREGATION);
++			fdt_setprop_string(blob, pcie30phy_node, "status", "okay");
++			// pcie3x4
++			fdt_setprop_string(blob, pcie3x4_node, "status", "okay");
++			break;
++		default:
++			printf("no find fixup_pcie status\n");
++			break;
++	}
++	return 0;
++}
++
+ int rk_board_fdt_fixup(const void *blob)
+ {
+ 	int node;
+ 
++	fdt_fixup_pcie((void *)blob);
++
+ 	/* set hdmirx to low power mode */
+ 	node = fdt_path_offset(blob, HDMIRX_NODE_FDT_PATH);
+ 	if (node >= 0) {

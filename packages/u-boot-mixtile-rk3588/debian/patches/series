@@ -7,3 +7,4 @@
 0007-fix-gcc13-compile-error.patch
 0008-fix-noble-compile-error.patch
 0009-add-fixup-pcie-fdt.patch
+0010-Remove-support-for-bootable-partition-booting-only.patch
